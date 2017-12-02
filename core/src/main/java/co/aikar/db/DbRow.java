@@ -60,6 +60,35 @@ public class DbRow extends HashMap<String, Object> {
         }
         return res;
     }
+
+    public Long getLong(String column) {
+        return get(column);
+    }
+
+    public Long getLong(String column, Long def) {
+        return get(column, def);
+    }
+
+    public Integer getInt(String column) {
+        return ((Number) get(column)).intValue();
+    }
+
+    public Integer getInt(String column, Integer def) {
+        return get(column, def);
+    }
+
+    public Integer getInt(String column, Long def) {
+        return get(column, def).intValue();
+    }
+
+    public String getString(String column) {
+        return get(column);
+    }
+
+    public String getString(String column, String def) {
+        return get(column, def);
+    }
+
     /**
      * Removes a result, returning as proper type.
      * <p/>
