@@ -65,20 +65,33 @@ public class DbRow extends HashMap<String, Object> {
         return get(column);
     }
 
-    public Long getLong(String column, Long def) {
-        return get(column, def);
+    public Long getLong(String column, Number def) {
+        return get(column, def).longValue();
     }
 
     public Integer getInt(String column) {
         return ((Number) get(column)).intValue();
     }
 
-    public Integer getInt(String column, Integer def) {
-        return get(column, def);
+    public Integer getInt(String column, Number def) {
+        return get(column, def).intValue();
     }
 
-    public Integer getInt(String column, Long def) {
-        return get(column, def).intValue();
+    public Float getFloat(String column) {
+        return ((Number) get(column)).floatValue();
+    }
+
+    public Float getFloat(String column, Number def) {
+        return get(column, def).floatValue();
+    }
+
+
+    public Double getDbl(String column) {
+        return ((Number) get(column)).doubleValue();
+    }
+
+    public Double getDbl(String column, Number def) {
+        return get(column, def).doubleValue();
     }
 
     public String getString(String column) {
