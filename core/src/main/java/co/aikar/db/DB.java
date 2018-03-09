@@ -23,63 +23,74 @@
 
 package co.aikar.db;
 
-import co.aikar.timings.lib.MCTiming;
-import co.aikar.timings.lib.TimingManager;
-import com.empireminecraft.util.Log;
-import com.empireminecraft.util.SneakyThrow;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
+import lombok.SneakyThrows;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 public final class DB {
+    private static final Pattern NEWLINE = Pattern.compile("\n");
     private static HikariDataSource pooledDataSource;
-    private static TimingManager timingsManager;
-    private static MCTiming sqlTiming;
-    private static Plugin plugin;
+    private static TimingsProvider timingsProvider;
+    private static DatabaseTiming sqlTiming;
+    private static Logger logger;
+    private static DatabaseOptions options;
+    private static ExecutorService threadPool;
     private DB() {}
 
     /**
      * Called in onDisable, destroys the Data source and nulls out references.
      */
     public static void close() {
-        AsyncDbQueue.processQueue();
+        close(120, TimeUnit.SECONDS);
+    }
+
+    public static void close(long timeout, TimeUnit unit) {
+        threadPool.shutdown();
+        try {
+            threadPool.awaitTermination(timeout, unit);
+        } catch (InterruptedException e) {
+            logException(e);
+        }
         pooledDataSource.close();
         pooledDataSource = null;
     }
 
-    /**
-     * Called in onEnable, initializes the pool and configures it and opens the first connection to spawn the pool.
-     */
-    public static void initialize(Plugin plugin, String user, String pass, String db, String hostAndPort) {
-        if (hostAndPort == null) {
-            hostAndPort = "localhost:3306";
-        }
-        initialize(plugin, user, pass, "mysql://" + hostAndPort + "/" + db);
-    }
-    public static void initialize(Plugin plugin, String user, String pass, String jdbcUrl) {
+    public static void initialize(DatabaseOptions options) {
         try {
-            DB.plugin = plugin;
-            timingsManager = TimingManager.of(plugin);
-            sqlTiming = timingsManager.of("Database");
+            DB.options = options;
+            timingsProvider = options.timingsProvider;
+            threadPool = options.executor;
+            if (threadPool == null) {
+                threadPool = new ThreadPoolExecutor(5, 5, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+                ((ThreadPoolExecutor)threadPool).allowCoreThreadTimeOut(true);
+            }
+            sqlTiming = timingsProvider.of("Database");
+            logger = options.logger;
+
             HikariConfig config = new HikariConfig();
 
-            config.setPoolName(plugin.getDescription().getName() + " DB");
+            config.setPoolName(options.poolName);
 
-
-            plugin.getLogger().info("Connecting to Database: " + jdbcUrl);
-            config.setDataSourceClassName("com.mysql.jdbc.jdbc2.optional.MysqlDataSource");
-            config.addDataSourceProperty("url", "jdbc:" + jdbcUrl);
-            config.addDataSourceProperty("user", user);
-            config.addDataSourceProperty("password", pass);
+            logger.info("Connecting to Database: " + options.dsn);
+            config.setDataSourceClassName(options.databaseClassName);
+            config.addDataSourceProperty("url", "jdbc:" + options.dsn);
+            if (options.user != null) {
+                config.addDataSourceProperty("user", options.user);
+            }
+            if (options.pass != null) {
+                config.addDataSourceProperty("password", options.pass);
+            }
             config.addDataSourceProperty("cachePrepStmts", true);
             config.addDataSourceProperty("prepStmtCacheSize", 250);
             config.addDataSourceProperty("prepStmtCacheSqlLimit", 2048);
@@ -100,11 +111,11 @@ public final class DB {
             pooledDataSource.setTransactionIsolation("TRANSACTION_READ_COMMITTED");
 
             // TODO: Move to executor
-            Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, new AsyncDbQueue(), 0, 1);
+            //Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, new AsyncDbQueue(), 0, 1);
         } catch (Exception ex) {
             pooledDataSource = null;
-            Log.exception("DB: Error Creating Database Pool", ex);
-            Bukkit.getServer().shutdown();
+            DB.logException("DB: Error Creating Database Pool", ex);
+            options.onFatalError.accept(ex);
         }
     }
 
@@ -124,14 +135,10 @@ public final class DB {
      * Initiates a new DbStatement and prepares the first query.
      * <p/>
      * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
-     *
-     * @param query
-     * @return
-     * @throws SQLException
      */
-    public static CompletableFuture<DbStatement> queryAsync(@Language("MySQL") String query) throws SQLException {
+    public static CompletableFuture<DbStatement> queryAsync(@Language("MySQL") String query) {
         CompletableFuture<DbStatement> future = new CompletableFuture<>();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        threadPool.submit(() -> {
             try {
                 future.complete(new DbStatement().query(query));
             } catch (SQLException e) {
@@ -148,7 +155,6 @@ public final class DB {
      * @param query  The query to run
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
-     * @throws SQLException
      */
     public static DbRow getFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = DB.query(query).execute(params)) {
@@ -162,9 +168,8 @@ public final class DB {
      * @param query  The query to run
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
-     * @throws SQLException
      */
-    public static CompletableFuture<DbRow> getFirstRowAsync(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static CompletableFuture<DbRow> getFirstRowAsync(@Language("MySQL") String query, Object... params) {
         CompletableFuture<DbRow> future = new CompletableFuture<>();
         new AsyncDbStatement(query) {
             @Override
@@ -201,9 +206,8 @@ public final class DB {
      * @param query  The query to run
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
-     * @throws SQLException
      */
-    public static <T> CompletableFuture<T> getFirstColumnAsync(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static <T> CompletableFuture<T> getFirstColumnAsync(@Language("MySQL") String query, Object... params) {
         CompletableFuture<T> future = new CompletableFuture<>();
         new AsyncDbStatement(query) {
             @Override
@@ -223,11 +227,6 @@ public final class DB {
      * Utility method to execute a query and retrieve first column of all results, then close statement.
      *
      * Meant for single queries that will not use the statement multiple times.
-     * @param query
-     * @param params
-     * @param <T>
-     * @return
-     * @throws SQLException
      */
     public static <T> List<T> getFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
         List<T> dbRows = new ArrayList<>();
@@ -243,13 +242,8 @@ public final class DB {
      * Utility method to execute a query and retrieve first column of all results, then close statement.
      *
      * Meant for single queries that will not use the statement multiple times.
-     * @param query
-     * @param params
-     * @param <T>
-     * @return
-     * @throws SQLException
      */
-    public static <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("MySQL") String query, Object... params) {
         CompletableFuture<List<T>> future = new CompletableFuture<>();
         new AsyncDbStatement(query) {
             @Override
@@ -278,7 +272,6 @@ public final class DB {
      * @param query  The query to run
      * @param params The parameters to execute the statement with
      * @return List of DbRow of your results (HashMap with template return type)
-     * @throws SQLException
      */
     public static List<DbRow> getResults(@Language("MySQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = DB.query(query).execute(params)) {
@@ -294,9 +287,8 @@ public final class DB {
      * @param query  The query to run
      * @param params The parameters to execute the statement with
      * @return List of DbRow of your results (HashMap with template return type)
-     * @throws SQLException
      */
-    public static CompletableFuture<List<DbRow>> getResultsAsync(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static CompletableFuture<List<DbRow>> getResultsAsync(@Language("MySQL") String query, Object... params) {
         CompletableFuture<List<DbRow>> future = new CompletableFuture<>();
         new AsyncDbStatement(query) {
             @Override
@@ -319,7 +311,6 @@ public final class DB {
      * @param query  Query to run
      * @param params Params to execute the statement with.
      * @return Inserted Row Id.
-     * @throws SQLException
      */
     public static Long executeInsert(@Language("MySQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = DB.query(query)) {
@@ -336,7 +327,6 @@ public final class DB {
      * @param query  Query to run
      * @param params Params to execute the statement with.
      * @return Number of rows modified.
-     * @throws SQLException
      */
     public static int executeUpdate(@Language("MySQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = DB.query(query)) {
@@ -368,7 +358,7 @@ public final class DB {
     }
 
     public static void createTransactionAsync(TransactionCallback run, Runnable onSuccess, Runnable onFail) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        threadPool.submit(() -> {
             if (!createTransaction(run)) {
                 if (onFail != null) {
                     onFail.run();
@@ -392,30 +382,53 @@ public final class DB {
                 }
             } catch (Exception e) {
                 stm.rollback();
-                Log.exception(e);
+                DB.logException(e);
             }
         } catch (SQLException e) {
-            Log.exception(e);
+            DB.logException(e);
         }
         return false;
     }
 
     @SuppressWarnings("WeakerAccess")
-    public static MCTiming timings(String name) {
-        return timingsManager.ofStart(name, sqlTiming);
+    public static DatabaseTiming timings(String name) {
+        return timingsProvider.of(name, sqlTiming);
+    }
+
+    public static void logException(Exception e) {
+        logException(e.getMessage(), e);
+    }
+    public static void logException(String message, Exception e) {
+        Level logLevel = Level.SEVERE;
+        logger.log(logLevel, message);
+        if (e != null) {
+            for (String line : NEWLINE.split(ApacheCommonsExceptionUtil.getFullStackTrace(e))) {
+                logger.log(logLevel, line);
+            }
+        }
+    }
+
+    public static void fatal(SQLException e) {
+        options.onFatalError.accept(e);
+    }
+
+    public static void executeAsync(AsyncDbStatement asyncStm) {
+        threadPool.submit(() -> {
+            try (DbStatement stm = new DbStatement()) {
+                asyncStm.run(stm);
+            } catch (SQLException e) {
+                DB.logException(e);
+            }
+        });
     }
 
     public interface TransactionCallback extends Function<DbStatement, Boolean> {
-        @Override
+        @Override @SneakyThrows
         default Boolean apply(DbStatement dbStatement) {
-            try {
-                return this.runTransaction(dbStatement);
-            } catch (Exception e)  {
-                SneakyThrow.sneaky(e);
-            }
-            return false;
+            return this.runTransaction(dbStatement);
         }
 
         Boolean runTransaction(DbStatement stm) throws SQLException;
     }
+
 }

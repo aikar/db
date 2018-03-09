@@ -23,9 +23,7 @@
 
 package co.aikar.db;
 
-import co.aikar.timings.lib.MCTiming;
-import com.empireminecraft.util.Log;
-import org.bukkit.util.Consumer;
+
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -36,8 +34,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
-import static org.bukkit.Bukkit.getServer;
 
 /**
  * Manages a connection to the database pool and lets you work with an active
@@ -70,23 +68,19 @@ public class DbStatement implements AutoCloseable {
     public DbStatement() throws SQLException {
         dbConn = DB.getConnection();
         if (dbConn == null) {
-            Log.exception("No database connection, shutting down", new SQLException("We do not have a database"));
-            getServer().shutdown();
+            DB.fatal(new SQLException("We do not have a database"));
         }
     }
 
-    public DbStatement(Connection connection) throws SQLException {
+    public DbStatement(Connection connection) {
         dbConn = connection;
     }
 
     /**
      * Starts a transaction on this connection
-     *
-     * @return
-     * @throws SQLException
      */
     public void startTransaction() throws SQLException {
-        try (MCTiming ignored = DB.timings("SQL - start transaction")) {
+        try (DatabaseTiming ignored = DB.timings("startTransaction")) {
             dbConn.setAutoCommit(false);
             isDirty = true;
         }
@@ -94,21 +88,16 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Commits a pending transaction on this connection
-     *
-     * @return
-     * @throws SQLException
      */
-    public void commit() {
+    public void commit() throws SQLException {
         if (!isDirty) {
             return;
         }
-        try (MCTiming ignored = DB.timings("SQL - commit")) {
+        try (DatabaseTiming ignored = DB.timings("commit")) {
             isDirty = false;
             dbConn.commit();
             dbConn.setAutoCommit(true);
             runEvents(this.onCommit);
-        } catch (SQLException e) {
-            Log.exception(e);
         }
     }
 
@@ -117,7 +106,7 @@ public class DbStatement implements AutoCloseable {
             try {
                 run.accept(this);
             } catch (Exception e) {
-                Log.exception("Exception on transaction runnable", e);
+                DB.logException("Exception on transaction runnable", e);
             }
         });
         this.onCommit.clear();
@@ -126,21 +115,16 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Rollsback a pending transaction on this connection.
-     *
-     * @return
-     * @throws SQLException
      */
-    public synchronized void rollback() {
+    public synchronized void rollback() throws SQLException {
         if (!isDirty) {
             return;
         }
-        try (MCTiming ignored = DB.timings("SQL - rollback")) {
+        try (DatabaseTiming ignored = DB.timings("rollback")) {
             isDirty = false;
             dbConn.rollback();
             dbConn.setAutoCommit(true);
             runEvents(this.onRollback);
-        } catch (SQLException e) {
-            Log.exception(e);
         }
     }
 
@@ -153,7 +137,6 @@ public class DbStatement implements AutoCloseable {
      * If not in a transaction, the method will run immediately after the next executeUpdate.
      * It will not run on non update execute queries when not in a transaction
      *
-     * @param run
      */
     public synchronized void onCommit(Consumer<DbStatement> run) {
         synchronized (this.onCommit) {
@@ -166,7 +149,6 @@ public class DbStatement implements AutoCloseable {
      * If not in a transaction, the method will run if the next executeUpdate has an error.
      * No guarantee is made about the state of the connection when this runnable is called.
      *
-     * @param run
      */
     public synchronized void onRollback(Consumer<DbStatement> run) {
         synchronized (this.onRollback) {
@@ -176,13 +158,10 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Initiates a new prepared statement on this connection.
-     *
-     * @param query
-     * @throws SQLException
      */
     public DbStatement query(@Language("MySQL") String query) throws SQLException {
         this.query = query;
-        try (MCTiming ignored = DB.timings("SQL - query: " + query)) {
+        try (DatabaseTiming ignored = DB.timings("query: " + query)) {
             closeStatement();
             try {
                 preparedStatement = dbConn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
@@ -197,10 +176,6 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Helper method to query, execute and getResults
-     * @param query
-     * @param params
-     * @return
-     * @throws SQLException
      */
     public ArrayList<DbRow> executeQueryGetResults(@Language("MySQL") String query, Object... params) throws SQLException {
         this.query(query);
@@ -210,10 +185,6 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Helper method to query and execute update
-     * @param query
-     * @param params
-     * @return
-     * @throws SQLException
      */
     public int executeUpdateQuery(@Language("MySQL") String query, Object... params) throws SQLException {
         this.query(query);
@@ -222,10 +193,6 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Helper method to query, execute and get first row
-     * @param query
-     * @param params
-     * @return
-     * @throws SQLException
      */
     public DbRow executeQueryGetFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
         this.query(query);
@@ -235,11 +202,6 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Helper to query, execute and get first column
-     * @param query
-     * @param params
-     * @param <T>
-     * @return
-     * @throws SQLException
      */
     public <T> T executeQueryGetFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
         this.query(query);
@@ -249,11 +211,6 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Helper to query, execute and get first column of all results
-     * @param query
-     * @param params
-     * @param <T>
-     * @return
-     * @throws SQLException
      */
     public <T> List<T> executeQueryGetFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
         this.query(query);
@@ -270,11 +227,9 @@ public class DbStatement implements AutoCloseable {
      * Utility method used by execute calls to set the statements parameters to execute on.
      *
      * @param params Array of Objects to use for each parameter.
-     * @return
-     * @throws SQLException
      */
     private void prepareExecute(Object... params) throws SQLException {
-        try (MCTiming ignored = DB.timings("SQL - prepareExecute: " + query)) {
+        try (DatabaseTiming ignored = DB.timings("prepareExecute: " + query)) {
             closeResult();
             if (preparedStatement == null) {
                 throw new IllegalStateException("Run Query first on statement before executing!");
@@ -288,13 +243,9 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Execute an update query with the supplied parameters
-     *
-     * @param params
-     * @return
-     * @throws SQLException
      */
     public int executeUpdate(Object... params) throws SQLException {
-        try (MCTiming ignored = DB.timings("SQL - executeUpdate: " + query)) {
+        try (DatabaseTiming ignored = DB.timings("executeUpdate: " + query)) {
             try {
                 prepareExecute(params);
                 int result = preparedStatement.executeUpdate();
@@ -314,13 +265,9 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Executes the prepared statement with the supplied parameters.
-     *
-     * @param params
-     * @return
-     * @throws SQLException
      */
     public DbStatement execute(Object... params) throws SQLException {
-        try (MCTiming ignored = DB.timings("SQL - execute: " + query)) {
+        try (DatabaseTiming ignored = DB.timings("execute: " + query)) {
             try {
                 prepareExecute(params);
                 resultSet = preparedStatement.executeQuery();
@@ -346,7 +293,7 @@ public class DbStatement implements AutoCloseable {
      * @return Long
      */
     public Long getLastInsertId() throws SQLException {
-        try (MCTiming ignored = DB.timings("SQL - getLastInsertId")) {
+        try (DatabaseTiming ignored = DB.timings("getLastInsertId")) {
             try (ResultSet genKeys = preparedStatement.getGeneratedKeys()) {
                 if (genKeys == null) {
                     return null;
@@ -362,15 +309,12 @@ public class DbStatement implements AutoCloseable {
 
     /**
      * Gets all results as an array of DbRow
-     *
-     * @return
-     * @throws SQLException
      */
     public ArrayList<DbRow> getResults() throws SQLException {
         if (resultSet == null) {
             return null;
         }
-        try (MCTiming ignored = DB.timings("SQL - getResults")) {
+        try (DatabaseTiming ignored = DB.timings("getResults")) {
             ArrayList<DbRow> result = new ArrayList<>();
             DbRow row;
             while ((row = getNextRow()) != null) {
@@ -384,7 +328,6 @@ public class DbStatement implements AutoCloseable {
      * Gets the next DbRow from the result set.
      *
      * @return DbRow containing a hashmap of the columns
-     * @throws SQLException
      */
     public DbRow getNextRow() throws SQLException {
         if (resultSet == null) {
@@ -405,15 +348,13 @@ public class DbStatement implements AutoCloseable {
     public <T> T getFirstColumn() throws SQLException {
         ResultSet resultSet = getNextResultSet();
         if (resultSet != null) {
+            //noinspection unchecked
             return (T) resultSet.getObject(1);
         }
         return null;
     }
     /**
      * Util method to get the next result set and close it when done.
-     *
-     * @return
-     * @throws SQLException
      */
     private ResultSet getNextResultSet() throws SQLException {
         if (resultSet != null && resultSet.next()) {
@@ -441,20 +382,21 @@ public class DbStatement implements AutoCloseable {
      * Closes all resources associated with this statement and returns the connection to the pool.
      */
     public void close() {
-        try (MCTiming ignored = DB.timings("SQL - close")) {
+        try (DatabaseTiming ignored = DB.timings("close")) {
 
             try {
                 closeStatement();
                 if (dbConn != null) {
                     if (isDirty && !dbConn.getAutoCommit()) {
-                        Log.exception(new Exception("Statement was not finalized: " + query));
+                        DB.logException(new Exception("Statement was not finalized: " + query));
                         rollback();
                     }
                     dbConn.close();
-                    dbConn = null;
                 }
             } catch (SQLException ex) {
-                Log.exception("Failed to close DB connection: " + query, ex);
+                DB.logException("Failed to close DB connection: " + query, ex);
+            } finally {
+                dbConn = null;
             }
         }
     }
