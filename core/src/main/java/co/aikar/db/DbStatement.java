@@ -25,6 +25,7 @@ package co.aikar.db;
 
 import co.aikar.timings.lib.MCTiming;
 import com.empireminecraft.util.Log;
+import org.bukkit.util.Consumer;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -34,6 +35,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.bukkit.Bukkit.getServer;
 
@@ -62,6 +64,8 @@ public class DbStatement implements AutoCloseable {
     public String query = "";
     // Has changes been made to a transaction w/o commit/rollback on close
     private volatile boolean isDirty = false;
+    private final List<Consumer<DbStatement>> onCommit = new ArrayList<>(0);
+    private final List<Consumer<DbStatement>> onRollback = new ArrayList<>(0);
 
     public DbStatement() throws SQLException {
         dbConn = DB.getConnection();
@@ -102,9 +106,22 @@ public class DbStatement implements AutoCloseable {
             isDirty = false;
             dbConn.commit();
             dbConn.setAutoCommit(true);
+            runEvents(this.onCommit);
         } catch (SQLException e) {
             Log.exception(e);
         }
+    }
+
+    private synchronized void runEvents(List<Consumer<DbStatement>> runnables) {
+        runnables.forEach(run -> {
+            try {
+                run.accept(this);
+            } catch (Exception e) {
+                Log.exception("Exception on transaction runnable", e);
+            }
+        });
+        this.onCommit.clear();
+        this.onRollback.clear();
     }
 
     /**
@@ -121,8 +138,39 @@ public class DbStatement implements AutoCloseable {
             isDirty = false;
             dbConn.rollback();
             dbConn.setAutoCommit(true);
+            runEvents(this.onRollback);
         } catch (SQLException e) {
             Log.exception(e);
+        }
+    }
+
+    public boolean inTransaction() {
+        return isDirty;
+    }
+
+    /**
+     * When this connection is rolled back, run this method.
+     * If not in a transaction, the method will run immediately after the next executeUpdate.
+     * It will not run on non update execute queries when not in a transaction
+     *
+     * @param run
+     */
+    public synchronized void onCommit(Consumer<DbStatement> run) {
+        synchronized (this.onCommit) {
+            this.onCommit.add(run);
+        }
+    }
+
+    /**
+     * When this connection is rolled back, run this method.
+     * If not in a transaction, the method will run if the next executeUpdate has an error.
+     * No guarantee is made about the state of the connection when this runnable is called.
+     *
+     * @param run
+     */
+    public synchronized void onRollback(Consumer<DbStatement> run) {
+        synchronized (this.onRollback) {
+            this.onRollback.add(run);
         }
     }
 
@@ -145,6 +193,77 @@ public class DbStatement implements AutoCloseable {
         }
 
         return this;
+    }
+
+    /**
+     * Helper method to query, execute and getResults
+     * @param query
+     * @param params
+     * @return
+     * @throws SQLException
+     */
+    public ArrayList<DbRow> executeQueryGetResults(@Language("MySQL") String query, Object... params) throws SQLException {
+        this.query(query);
+        this.execute(params);
+        return getResults();
+    }
+
+    /**
+     * Helper method to query and execute update
+     * @param query
+     * @param params
+     * @return
+     * @throws SQLException
+     */
+    public int executeUpdateQuery(@Language("MySQL") String query, Object... params) throws SQLException {
+        this.query(query);
+        return this.executeUpdate(params);
+    }
+
+    /**
+     * Helper method to query, execute and get first row
+     * @param query
+     * @param params
+     * @return
+     * @throws SQLException
+     */
+    public DbRow executeQueryGetFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
+        this.query(query);
+        this.execute(params);
+        return this.getNextRow();
+    }
+
+    /**
+     * Helper to query, execute and get first column
+     * @param query
+     * @param params
+     * @param <T>
+     * @return
+     * @throws SQLException
+     */
+    public <T> T executeQueryGetFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
+        this.query(query);
+        this.execute(params);
+        return this.getFirstColumn();
+    }
+
+    /**
+     * Helper to query, execute and get first column of all results
+     * @param query
+     * @param params
+     * @param <T>
+     * @return
+     * @throws SQLException
+     */
+    public <T> List<T> executeQueryGetFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
+        this.query(query);
+        this.execute(params);
+        List<T> dbRows = new ArrayList<>();
+        T result;
+        while ((result = this.getFirstColumn()) != null) {
+            dbRows.add(result);
+        }
+        return dbRows;
     }
 
     /**
@@ -178,8 +297,15 @@ public class DbStatement implements AutoCloseable {
         try (MCTiming ignored = DB.timings("SQL - executeUpdate: " + query)) {
             try {
                 prepareExecute(params);
-                return preparedStatement.executeUpdate();
+                int result = preparedStatement.executeUpdate();
+                if (!isDirty) {
+                    runEvents(this.onCommit);
+                }
+                return result;
             } catch (SQLException e) {
+                if (!isDirty) {
+                    runEvents(this.onRollback);
+                }
                 close();
                 throw e;
             }
@@ -283,7 +409,6 @@ public class DbStatement implements AutoCloseable {
         }
         return null;
     }
-
     /**
      * Util method to get the next result set and close it when done.
      *
@@ -311,6 +436,7 @@ public class DbStatement implements AutoCloseable {
             preparedStatement = null;
         }
     }
+
     /**
      * Closes all resources associated with this statement and returns the connection to the pool.
      */
