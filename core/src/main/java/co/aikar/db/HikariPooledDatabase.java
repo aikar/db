@@ -10,17 +10,15 @@ import java.util.concurrent.TimeUnit;
 
 public class HikariPooledDatabase extends BaseDatabase {
     private HikariDataSource pooledDataSource;
-    private final HikariDatabaseOptions poolOptions;
+    private final PooledDatabaseOptions poolOptions;
 
-    public HikariPooledDatabase(HikariDatabaseOptions poolOptions) {
+    public HikariPooledDatabase(PooledDatabaseOptions poolOptions) {
         super(poolOptions.options);
         this.poolOptions = poolOptions;
         DatabaseOptions options = poolOptions.options;
 
         HikariConfig config = new HikariConfig();
-
         config.setPoolName(options.poolName);
-
         config.setDataSourceClassName(options.databaseClassName);
         config.addDataSourceProperty("url", "jdbc:" + options.dsn);
 
@@ -70,7 +68,7 @@ public class HikariPooledDatabase extends BaseDatabase {
         return pooledDataSource != null ? pooledDataSource.getConnection() : null;
     }
 
-    public HikariDatabaseOptions getPoolOptions() {
+    public PooledDatabaseOptions getPoolOptions() {
         return poolOptions;
     }
 }
