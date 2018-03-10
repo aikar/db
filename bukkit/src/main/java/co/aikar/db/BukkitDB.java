@@ -11,7 +11,7 @@ public class BukkitDB {
     public static PooledDatabaseOptions getRecommendedOptions(Plugin plugin, @NonNull String user, @NonNull String pass, @NonNull String db, @NonNull String hostAndPort) {
         DatabaseOptions options = DatabaseOptions
                 .builder()
-                .poolName(plugin.getDescription().getName() + "DB")
+                .poolName(plugin.getDescription().getName() + " DB")
                 .logger(plugin.getLogger())
                 .mysql(user, pass, db, hostAndPort)
                 .build();
