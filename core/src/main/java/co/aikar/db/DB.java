@@ -23,129 +23,42 @@
 
 package co.aikar.db;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import org.intellij.lang.annotations.Language;
 
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 public final class DB {
     private static final Pattern NEWLINE = Pattern.compile("\n");
-    private static HikariDataSource pooledDataSource;
-    private static TimingsProvider timingsProvider;
-    private static DatabaseTiming sqlTiming;
-    private static Logger logger;
-    private static DatabaseOptions options;
-    private static ExecutorService threadPool;
     private DB() {}
+
+    private static Database globalDatabase;
+
+    public synchronized static Database getGlobalDatabase() {
+        return globalDatabase;
+    }
+    public synchronized static void setGlobalDatabase(Database database) {
+        globalDatabase = database;
+    }
 
     /**
      * Called in onDisable, destroys the Data source and nulls out references.
      */
-    public static void close() {
+    public synchronized static void close() {
         close(120, TimeUnit.SECONDS);
     }
 
-    public static void close(long timeout, TimeUnit unit) {
-        threadPool.shutdown();
-        try {
-            threadPool.awaitTermination(timeout, unit);
-        } catch (InterruptedException e) {
-            logException(e);
+    public synchronized static void close(long timeout, TimeUnit unit) {
+        if (globalDatabase != null) {
+            globalDatabase.close(timeout, unit);
+            globalDatabase = null;
         }
-        pooledDataSource.close();
-        pooledDataSource = null;
-    }
-
-    public static void initialize(DatabaseOptions options) {
-        try {
-            DB.options = options;
-            timingsProvider = options.timingsProvider;
-            threadPool = options.executor;
-            if (threadPool == null) {
-                threadPool = new ThreadPoolExecutor(
-                        options.minAsyncThreads,
-                        options.maxAsyncThreads,
-                        options.asyncThreadTimeout,
-                        TimeUnit.SECONDS,
-                        new LinkedBlockingQueue<>()
-                );
-                ((ThreadPoolExecutor)threadPool).allowCoreThreadTimeOut(true);
-            }
-            sqlTiming = timingsProvider.of("Database");
-            logger = options.logger;
-            if (logger == null) {
-                logger = Logger.getLogger(options.poolName);
-            }
-
-            HikariConfig config = new HikariConfig();
-
-            config.setPoolName(options.poolName);
-
-            logger.info("Connecting to Database: " + options.dsn);
-            config.setDataSourceClassName(options.databaseClassName);
-            config.addDataSourceProperty("url", "jdbc:" + options.dsn);
-            if (options.user != null) {
-                config.addDataSourceProperty("user", options.user);
-            }
-            if (options.pass != null) {
-                config.addDataSourceProperty("password", options.pass);
-            }
-            if (options.useOptimizations) {
-                config.addDataSourceProperty("cachePrepStmts", true);
-                config.addDataSourceProperty("prepStmtCacheSize", 250);
-                config.addDataSourceProperty("prepStmtCacheSqlLimit", 2048);
-                config.addDataSourceProperty("useServerPrepStmts", true);
-                config.addDataSourceProperty("cacheCallableStmts", true);
-                config.addDataSourceProperty("cacheResultSetMetadata", true);
-                config.addDataSourceProperty("cacheServerConfiguration", true);
-                config.addDataSourceProperty("useLocalSessionState", true);
-                config.addDataSourceProperty("elideSetAutoCommits", true);
-                config.addDataSourceProperty("alwaysSendSetIsolation", false);
-            }
-            if (options.dataSourceProperties != null) {
-                for (Map.Entry<String, Object> entry : options.dataSourceProperties.entrySet()) {
-                    config.addDataSourceProperty(entry.getKey(), entry.getValue());
-                }
-            }
-
-            config.setConnectionTestQuery("SELECT 1");
-            config.setInitializationFailFast(true);
-            config.setMinimumIdle(options.minIdleConnections);
-            config.setMaximumPoolSize(options.maxConnections);
-
-            pooledDataSource = new HikariDataSource(config);
-            pooledDataSource.setTransactionIsolation(options.defaultIsolationLevel);
-        } catch (Exception ex) {
-            pooledDataSource = null;
-            DB.logException("DB: Error Creating Database Pool", ex);
-            options.onFatalError.accept(ex);
-        }
-    }
-
-    /**
-     * Initiates a new DbStatement and prepares the first query.
-     * <p/>
-     * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
-     */
-    public static DbStatement query(@Language("MySQL") String query) throws SQLException {
-        return (new DbStatement()).query(query);
-    }
-    /**
-     * Initiates a new DbStatement and prepares the first query.
-     * <p/>
-     * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
-     */
-    public static CompletableFuture<DbStatement> queryAsync(@Language("MySQL") String query) {
-        return DB.dispatchAsync(() -> new DbStatement().query(query));
     }
 
     /**
@@ -157,10 +70,7 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static DbRow getFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query)) {
-            statement.execute(params);
-            return statement.getNextRow();
-        }
+        return globalDatabase.getFirstRow(query, params);
     }
     /**
      * Utility method to execute a query and retrieve the first row, then close statement.
@@ -171,7 +81,7 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static CompletableFuture<DbRow> getFirstRowAsync(@Language("MySQL") String query, Object... params) {
-        return DB.dispatchAsync(() -> getFirstRow(query, params));
+        return globalDatabase.getFirstRowAsync(query, params);
     }
 
     /**
@@ -183,10 +93,7 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static <T> T getFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query)) {
-            statement.execute(params);
-            return statement.getFirstColumn();
-        }
+        return globalDatabase.getFirstColumn(query, params);
     }
     /**
      * Utility method to execute a query and retrieve the first column of the first row, then close statement.
@@ -197,7 +104,7 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static <T> CompletableFuture<T> getFirstColumnAsync(@Language("MySQL") String query, Object... params) {
-        return DB.dispatchAsync(() -> getFirstColumn(query, params));
+        return globalDatabase.getFirstColumnAsync(query, params);
     }
 
     /**
@@ -206,15 +113,7 @@ public final class DB {
      * Meant for single queries that will not use the statement multiple times.
      */
     public static <T> List<T> getFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
-        List<T> dbRows = new ArrayList<>();
-        T result;
-        try (DbStatement statement = DB.query(query)) {
-            statement.execute(params);
-            while ((result = statement.getFirstColumn()) != null) {
-                dbRows.add(result);
-            }
-        }
-        return dbRows;
+        return globalDatabase.getFirstColumnResults(query, params);
     }
     /**
      * Utility method to execute a query and retrieve first column of all results, then close statement.
@@ -222,7 +121,7 @@ public final class DB {
      * Meant for single queries that will not use the statement multiple times.
      */
     public static <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("MySQL") String query, Object... params) {
-        return DB.dispatchAsync(() -> getFirstColumnResults(query, params));
+        return globalDatabase.getFirstColumnResultsAsync(query, params);
     }
 
     /**
@@ -235,10 +134,7 @@ public final class DB {
      * @return List of DbRow of your results (HashMap with template return type)
      */
     public static List<DbRow> getResults(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query)) {
-            statement.execute(params);
-            return statement.getResults();
-        }
+        return globalDatabase.getResults(query, params);
     }
 
     /**
@@ -251,7 +147,7 @@ public final class DB {
      * @return List of DbRow of your results (HashMap with template return type)
      */
     public static CompletableFuture<List<DbRow>> getResultsAsync(@Language("MySQL") String query, Object... params) {
-        return DB.dispatchAsync(() -> getResults(query, params));
+        return globalDatabase.getResultsAsync(query, params);
     }
 
     /**
@@ -263,13 +159,7 @@ public final class DB {
      * @return Inserted Row Id.
      */
     public static Long executeInsert(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query)) {
-            int i = statement.executeUpdate(params);
-            if (i > 0) {
-                return statement.getLastInsertId();
-            }
-        }
-        return null;
+        return globalDatabase.executeInsert(query, params);
     }
     /**
      * Utility method for executing an update synchronously, and then close the statement.
@@ -279,9 +169,7 @@ public final class DB {
      * @return Number of rows modified.
      */
     public static int executeUpdate(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query)) {
-            return statement.executeUpdate(params);
-        }
+        return globalDatabase.executeUpdate(query, params);
     }
 
     /**
@@ -291,88 +179,44 @@ public final class DB {
      * @param params Params to execute the update with
      */
     public static CompletableFuture<Integer> executeUpdateAsync(@Language("MySQL") String query, final Object... params) {
-        return dispatchAsync(() -> executeUpdate(query, params));
+        return globalDatabase.executeUpdateAsync(query, params);
     }
 
     private synchronized static <T> CompletableFuture<T> dispatchAsync(Callable<T> task) {
-        CompletableFuture<T> future = new CompletableFuture<>();
-        Runnable run = () -> {
-            try {
-                future.complete(task.call());
-            } catch (Exception e) {
-                future.completeExceptionally(e);
-            }
-        };
-        if (threadPool == null) {
-            run.run();
-        } else {
-            threadPool.submit(run);
-        }
-        return future;
-    }
-
-    static Connection getConnection() throws SQLException {
-        return pooledDataSource != null ? pooledDataSource.getConnection() : null;
+        return globalDatabase.dispatchAsync(task);
     }
 
     public static void createTransactionAsync(TransactionCallback run) {
-        createTransactionAsync(run, null, null);
+        globalDatabase.createTransactionAsync(run, null, null);
     }
 
     public static void createTransactionAsync(TransactionCallback run, Runnable onSuccess, Runnable onFail) {
-        dispatchAsync(() -> {
-            if (!createTransaction(run)) {
-                if (onFail != null) {
-                    onFail.run();
-                }
-            } else if (onSuccess != null) {
-                onSuccess.run();
-            }
-            return null;
-        });
+        globalDatabase.createTransactionAsync(run, onSuccess, onFail);
     }
 
     public static boolean createTransaction(TransactionCallback run) {
-        try (DbStatement stm = new DbStatement()) {
-            try {
-                stm.startTransaction();
-                if (!run.apply(stm)) {
-                    stm.rollback();
-                    return false;
-                } else {
-                    stm.commit();
-                    return true;
-                }
-            } catch (Exception e) {
-                stm.rollback();
-                DB.logException(e);
-            }
-        } catch (SQLException e) {
-            DB.logException(e);
-        }
-        return false;
-    }
-
-    @SuppressWarnings("WeakerAccess")
-    public static DatabaseTiming timings(String name) {
-        return timingsProvider.of(options.poolName + " - " + name, sqlTiming);
+        return globalDatabase.createTransaction(run);
     }
 
     public static void logException(Exception e) {
-        logException(e.getMessage(), e);
+        globalDatabase.logException(e.getMessage(), e);
     }
     public static void logException(String message, Exception e) {
-        Level logLevel = Level.SEVERE;
+        globalDatabase.logException(message, e);
+    }
+
+    public static void fatalError(Exception e) {
+        globalDatabase.fatalError(e);
+    }
+
+    public static void logException(Logger logger, Level logLevel, String message, Exception e) {
         logger.log(logLevel, message);
+
         if (e != null) {
             for (String line : NEWLINE.split(ApacheCommonsExceptionUtil.getFullStackTrace(e))) {
                 logger.log(logLevel, line);
             }
         }
-    }
-
-    public static void fatal(SQLException e) {
-        options.onFatalError.accept(e);
     }
 
 }

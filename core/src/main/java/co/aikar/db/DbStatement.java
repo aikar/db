@@ -38,7 +38,7 @@ import java.util.function.Consumer;
 
 
 /**
- * Manages a connection to the database pool and lets you work with an active
+ * Manages a connection to the database db and lets you work with an active
  * prepared statement.
  * <p/>
  * Must close after you are done with it, preferably wrapping in a try/catch/finally
@@ -55,6 +55,7 @@ import java.util.function.Consumer;
  * }
  */
 public class DbStatement implements AutoCloseable {
+    private Database db;
     private Connection dbConn;
     private PreparedStatement preparedStatement;
     private ResultSet resultSet;
@@ -66,21 +67,21 @@ public class DbStatement implements AutoCloseable {
     private final List<Consumer<DbStatement>> onRollback = new ArrayList<>(0);
 
     public DbStatement() throws SQLException {
-        dbConn = DB.getConnection();
-        if (dbConn == null) {
-            DB.fatal(new SQLException("We do not have a database"));
-        }
+        this(DB.getGlobalDatabase());
     }
-
-    public DbStatement(Connection connection) {
-        dbConn = connection;
+    public DbStatement(Database db) throws SQLException {
+        this.db = db;
+        dbConn = db.getConnection();
+        if (dbConn == null) {
+            db.fatalError(new SQLException("We do not have a database"));
+        }
     }
 
     /**
      * Starts a transaction on this connection
      */
     public void startTransaction() throws SQLException {
-        try (DatabaseTiming ignored = DB.timings("startTransaction")) {
+        try (DatabaseTiming ignored = db.timings("startTransaction")) {
             dbConn.setAutoCommit(false);
             isDirty = true;
         }
@@ -93,7 +94,7 @@ public class DbStatement implements AutoCloseable {
         if (!isDirty) {
             return;
         }
-        try (DatabaseTiming ignored = DB.timings("commit")) {
+        try (DatabaseTiming ignored = db.timings("commit")) {
             isDirty = false;
             dbConn.commit();
             dbConn.setAutoCommit(true);
@@ -120,7 +121,7 @@ public class DbStatement implements AutoCloseable {
         if (!isDirty) {
             return;
         }
-        try (DatabaseTiming ignored = DB.timings("rollback")) {
+        try (DatabaseTiming ignored = db.timings("rollback")) {
             isDirty = false;
             dbConn.rollback();
             dbConn.setAutoCommit(true);
@@ -161,7 +162,7 @@ public class DbStatement implements AutoCloseable {
      */
     public DbStatement query(@Language("MySQL") String query) throws SQLException {
         this.query = query;
-        try (DatabaseTiming ignored = DB.timings("query: " + query)) {
+        try (DatabaseTiming ignored = db.timings("query: " + query)) {
             closeStatement();
             try {
                 preparedStatement = dbConn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
@@ -229,7 +230,7 @@ public class DbStatement implements AutoCloseable {
      * @param params Array of Objects to use for each parameter.
      */
     private void prepareExecute(Object... params) throws SQLException {
-        try (DatabaseTiming ignored = DB.timings("prepareExecute: " + query)) {
+        try (DatabaseTiming ignored = db.timings("prepareExecute: " + query)) {
             closeResult();
             if (preparedStatement == null) {
                 throw new IllegalStateException("Run Query first on statement before executing!");
@@ -245,7 +246,7 @@ public class DbStatement implements AutoCloseable {
      * Execute an update query with the supplied parameters
      */
     public int executeUpdate(Object... params) throws SQLException {
-        try (DatabaseTiming ignored = DB.timings("executeUpdate: " + query)) {
+        try (DatabaseTiming ignored = db.timings("executeUpdate: " + query)) {
             try {
                 prepareExecute(params);
                 int result = preparedStatement.executeUpdate();
@@ -267,7 +268,7 @@ public class DbStatement implements AutoCloseable {
      * Executes the prepared statement with the supplied parameters.
      */
     public DbStatement execute(Object... params) throws SQLException {
-        try (DatabaseTiming ignored = DB.timings("execute: " + query)) {
+        try (DatabaseTiming ignored = db.timings("execute: " + query)) {
             try {
                 prepareExecute(params);
                 resultSet = preparedStatement.executeQuery();
@@ -293,7 +294,7 @@ public class DbStatement implements AutoCloseable {
      * @return Long
      */
     public Long getLastInsertId() throws SQLException {
-        try (DatabaseTiming ignored = DB.timings("getLastInsertId")) {
+        try (DatabaseTiming ignored = db.timings("getLastInsertId")) {
             try (ResultSet genKeys = preparedStatement.getGeneratedKeys()) {
                 if (genKeys == null) {
                     return null;
@@ -314,7 +315,7 @@ public class DbStatement implements AutoCloseable {
         if (resultSet == null) {
             return null;
         }
-        try (DatabaseTiming ignored = DB.timings("getResults")) {
+        try (DatabaseTiming ignored = db.timings("getResults")) {
             ArrayList<DbRow> result = new ArrayList<>();
             DbRow row;
             while ((row = getNextRow()) != null) {
@@ -379,10 +380,10 @@ public class DbStatement implements AutoCloseable {
     }
 
     /**
-     * Closes all resources associated with this statement and returns the connection to the pool.
+     * Closes all resources associated with this statement and returns the connection to the db.
      */
     public void close() {
-        try (DatabaseTiming ignored = DB.timings("close")) {
+        try (DatabaseTiming ignored = db.timings("close")) {
 
             try {
                 closeStatement();
