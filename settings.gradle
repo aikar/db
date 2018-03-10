@@ -1,5 +1,6 @@
 include 'core'
 include 'bukkit'
-findProject(':core')?.name = 'db-core'
-findProject(':bukkit')?.name = 'db-bukkit'
+rootProject.name = 'idb'
+findProject(':core')?.name = 'idb-core'
+findProject(':bukkit')?.name = 'idb-bukkit'
 

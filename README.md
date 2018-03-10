@@ -1,11 +1,20 @@
-# ADB - Aikar Database
+# IDB - Intuitive Database Wrapper
 
-This is my JDBC Database Wrapper, to provide simpler access to querying the database, with automatic connection closing.
+This is my JDBC Database Wrapper, with the intent on providing a clean intuitive API, for access to a JDBC database,
+
+IDB handles connections, query, execution, result fetching and data return for all the common access operations without the boilerplate of making all of the JDBC API's yourself.
+
+Most Database operations can be completed in a single API call.
 
 Built currently on top of Hikari Connection Pool.
 ## Usage
+### Version:
+1.0.0-SNAPSHOT
+
 ### Project Setup
-TBD
+
+Add `co.aikar:idb-core` to project.
+Bukkit Minecraft Plugins can also add `co.aikar:idb-bukkit` and use `BukkitDB`
 
 ### Dependencies
 
@@ -78,6 +87,6 @@ Or [Code With Aikar](https://aikardiscord.emc.gs) Discord.
 ## License
 As with all my other public projects
 
-DB (c) Daniel Ennis (Aikar) 2014-2018.
+IDB (c) Daniel Ennis (Aikar) 2014-2018.
 
-DB is licensed [MIT](https://tldrlegal.com/license/mit-license). See [LICENSE](LICENSE)
+IDB is licensed [MIT](https://tldrlegal.com/license/mit-license). See [LICENSE](LICENSE)
