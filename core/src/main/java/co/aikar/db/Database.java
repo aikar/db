@@ -53,12 +53,28 @@ public interface Database {
     }
 
     /**
+     * Initiates a new DbStatement
+     * <p/>
+     * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
+     */
+    default DbStatement createStatement() throws SQLException {
+        return (new DbStatement(this));
+    }
+
+    /**
      * Initiates a new DbStatement and prepares the first query.
      * <p/>
      * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
      */
     default DbStatement query(@Language("MySQL") String query) throws SQLException {
-        return (new DbStatement(this)).query(query);
+        DbStatement stm = new DbStatement(this);
+        try {
+            stm.query(query);
+            return stm;
+        } catch (Exception e) {
+            stm.close();
+            throw e;
+        }
     }
 
     /**
