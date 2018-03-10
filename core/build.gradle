@@ -1,44 +1,5 @@
-plugins {
-    id 'io.franzbecker.gradle-lombok' version '1.11'
-    id 'java'
-    id 'maven-publish'
-}
-
-group 'co.aikar'
-version '1.0.0-SNAPSHOT'
-
-
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
-
-lombok {
-    version = '1.16.20'
-    sha256 = ""
-}
-
-publishing {
-    repositories {
-        maven {
-            url 'https://repo.aikar.co/content/repositories/aikar-snapshots/'
-        }
-    }
-    publications {
-        maven(MavenPublication) {
-            artifactId 'db-core'
-
-            from components.java
-        }
-    }
-}
 dependencies {
-    compileOnly group: 'org.jetbrains', name: 'annotations', version: '15.0'
     compileOnly group: 'com.zaxxer', name: 'HikariCP', version: '2.4.1'
 }
 
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven { url = "https://repo.aikar.co/content/groups/aikar/" }
-}
 

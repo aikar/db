@@ -1,0 +1,58 @@
+plugins {
+    id 'io.franzbecker.gradle-lombok' version '1.11' apply false
+}
+subprojects {
+    buildscript {
+        repositories {
+            mavenCentral()
+        }
+    }
+
+
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+    apply plugin: 'io.franzbecker.gradle-lombok'
+
+    version '1.0.0-SNAPSHOT'
+
+    group 'co.aikar'
+
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+
+    lombok {
+        version = '1.16.20'
+        sha256 = ""
+    }
+
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                url 'https://repo.aikar.co/content/repositories/aikar-snapshots/'
+                if (project.hasProperty('aikarRepoUser') && project.hasProperty('aikarRepoPass')) {
+                    credentials {
+                        username = aikarRepoUser
+                        password = aikarRepoPass
+                    }
+                }
+            }
+        }
+    }
+    dependencies {
+        compileOnly group: 'org.jetbrains', name: 'annotations', version: '15.0'
+    }
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            name = "aikar"
+            url = "https://repo.aikar.co/content/groups/aikar/"
+        }
+    }
+}
