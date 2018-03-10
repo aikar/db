@@ -52,6 +52,10 @@ public interface Database {
         getOptions().onFatalError.accept(e);
     }
 
+    default void closeConnection(Connection conn) throws SQLException {
+        conn.close();
+    }
+
     /**
      * Initiates a new DbStatement
      * <p/>

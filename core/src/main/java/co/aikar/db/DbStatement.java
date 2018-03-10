@@ -392,7 +392,7 @@ public class DbStatement implements AutoCloseable {
                         DB.logException(new Exception("Statement was not finalized: " + query));
                         rollback();
                     }
-                    dbConn.close();
+                    db.closeConnection(dbConn);
                 }
             } catch (SQLException ex) {
                 DB.logException("Failed to close DB connection: " + query, ex);
