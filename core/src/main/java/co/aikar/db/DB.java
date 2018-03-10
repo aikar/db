@@ -145,15 +145,7 @@ public final class DB {
      * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
      */
     public static CompletableFuture<DbStatement> queryAsync(@Language("MySQL") String query) {
-        CompletableFuture<DbStatement> future = new CompletableFuture<>();
-        threadPool.submit(() -> {
-            try {
-                future.complete(new DbStatement().query(query));
-            } catch (SQLException e) {
-                future.completeExceptionally(e);
-            }
-        });
-        return future;
+        return DB.dispatchAsync(() -> new DbStatement().query(query));
     }
 
     /**
@@ -165,7 +157,8 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static DbRow getFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query).execute(params)) {
+        try (DbStatement statement = DB.query(query)) {
+            statement.execute(params);
             return statement.getNextRow();
         }
     }
@@ -178,19 +171,7 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static CompletableFuture<DbRow> getFirstRowAsync(@Language("MySQL") String query, Object... params) {
-        CompletableFuture<DbRow> future = new CompletableFuture<>();
-        new AsyncDbStatement(query) {
-            @Override
-            protected void run(DbStatement statement) throws SQLException {
-                try {
-                    future.complete(statement.getNextRow());
-                } catch (Exception e) {
-                    future.completeExceptionally(e);
-                }
-            }
-        };
-
-        return future;
+        return DB.dispatchAsync(() -> getFirstRow(query, params));
     }
 
     /**
@@ -200,10 +181,10 @@ public final class DB {
      * @param query  The query to run
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
-     * @throws SQLException
      */
     public static <T> T getFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query).execute(params)) {
+        try (DbStatement statement = DB.query(query)) {
+            statement.execute(params);
             return statement.getFirstColumn();
         }
     }
@@ -216,19 +197,7 @@ public final class DB {
      * @return DbRow of your results (HashMap with template return type)
      */
     public static <T> CompletableFuture<T> getFirstColumnAsync(@Language("MySQL") String query, Object... params) {
-        CompletableFuture<T> future = new CompletableFuture<>();
-        new AsyncDbStatement(query) {
-            @Override
-            protected void run(DbStatement statement) throws SQLException {
-                try {
-                    future.complete(statement.getFirstColumn());
-                } catch (Exception e) {
-                    future.completeExceptionally(e);
-                }
-            }
-        };
-
-        return future;
+        return DB.dispatchAsync(() -> getFirstColumn(query, params));
     }
 
     /**
@@ -239,7 +208,8 @@ public final class DB {
     public static <T> List<T> getFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
         List<T> dbRows = new ArrayList<>();
         T result;
-        try (DbStatement statement = DB.query(query).execute(params)) {
+        try (DbStatement statement = DB.query(query)) {
+            statement.execute(params);
             while ((result = statement.getFirstColumn()) != null) {
                 dbRows.add(result);
             }
@@ -252,24 +222,7 @@ public final class DB {
      * Meant for single queries that will not use the statement multiple times.
      */
     public static <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("MySQL") String query, Object... params) {
-        CompletableFuture<List<T>> future = new CompletableFuture<>();
-        new AsyncDbStatement(query) {
-            @Override
-            protected void run(DbStatement statement) throws SQLException {
-                try {
-                    List<T> dbRows = new ArrayList<>();
-                    T result;
-                    while ((result = statement.getFirstColumn()) != null) {
-                        dbRows.add(result);
-                    }
-                    future.complete(dbRows);
-                } catch (Exception e) {
-                    future.completeExceptionally(e);
-                }
-            }
-        };
-
-        return future;
+        return DB.dispatchAsync(() -> getFirstColumnResults(query, params));
     }
 
     /**
@@ -282,7 +235,8 @@ public final class DB {
      * @return List of DbRow of your results (HashMap with template return type)
      */
     public static List<DbRow> getResults(@Language("MySQL") String query, Object... params) throws SQLException {
-        try (DbStatement statement = DB.query(query).execute(params)) {
+        try (DbStatement statement = DB.query(query)) {
+            statement.execute(params);
             return statement.getResults();
         }
     }
@@ -297,19 +251,7 @@ public final class DB {
      * @return List of DbRow of your results (HashMap with template return type)
      */
     public static CompletableFuture<List<DbRow>> getResultsAsync(@Language("MySQL") String query, Object... params) {
-        CompletableFuture<List<DbRow>> future = new CompletableFuture<>();
-        new AsyncDbStatement(query) {
-            @Override
-            protected void run(DbStatement statement) throws SQLException {
-                try {
-                    future.complete(statement.getResults());
-                } catch (Exception e) {
-                    future.completeExceptionally(e);
-                }
-            }
-        };
-
-        return future;
+        return DB.dispatchAsync(() -> getResults(query, params));
     }
 
     /**
@@ -348,13 +290,25 @@ public final class DB {
      * @param query  Query to run
      * @param params Params to execute the update with
      */
-    public static void executeUpdateAsync(@Language("MySQL") String query, final Object... params) {
-        new AsyncDbStatement(query) {
-            @Override
-            public void run(DbStatement statement) throws SQLException {
-                statement.executeUpdate(params);
+    public static CompletableFuture<Integer> executeUpdateAsync(@Language("MySQL") String query, final Object... params) {
+        return dispatchAsync(() -> executeUpdate(query, params));
+    }
+
+    private synchronized static <T> CompletableFuture<T> dispatchAsync(Callable<T> task) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        Runnable run = () -> {
+            try {
+                future.complete(task.call());
+            } catch (Exception e) {
+                future.completeExceptionally(e);
             }
         };
+        if (threadPool == null) {
+            run.run();
+        } else {
+            threadPool.submit(run);
+        }
+        return future;
     }
 
     static Connection getConnection() throws SQLException {
@@ -366,7 +320,7 @@ public final class DB {
     }
 
     public static void createTransactionAsync(TransactionCallback run, Runnable onSuccess, Runnable onFail) {
-        threadPool.submit(() -> {
+        dispatchAsync(() -> {
             if (!createTransaction(run)) {
                 if (onFail != null) {
                     onFail.run();
@@ -374,6 +328,7 @@ public final class DB {
             } else if (onSuccess != null) {
                 onSuccess.run();
             }
+            return null;
         });
     }
 
@@ -418,16 +373,6 @@ public final class DB {
 
     public static void fatal(SQLException e) {
         options.onFatalError.accept(e);
-    }
-
-    public static void executeAsync(AsyncDbStatement asyncStm) {
-        threadPool.submit(() -> {
-            try (DbStatement stm = new DbStatement()) {
-                asyncStm.run(stm);
-            } catch (SQLException e) {
-                DB.logException(e);
-            }
-        });
     }
 
 }
