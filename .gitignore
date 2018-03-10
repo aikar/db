@@ -3,6 +3,8 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
+META-INF
+
 .idea/workspace.xml
 .idea/dictionaries
 .idea/misc.xml

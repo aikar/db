@@ -15,11 +15,16 @@ lombok {
     version = '1.16.20'
     sha256 = ""
 }
+
 publishing {
+    repositories {
+        maven {
+            url 'https://repo.aikar.co/content/repositories/aikar-snapshots/'
+        }
+    }
     publications {
         maven(MavenPublication) {
             artifactId 'db-core'
-            version '1.1'
 
             from components.java
         }

@@ -25,15 +25,14 @@ package co.aikar.db;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import lombok.SneakyThrows;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -72,11 +71,20 @@ public final class DB {
             timingsProvider = options.timingsProvider;
             threadPool = options.executor;
             if (threadPool == null) {
-                threadPool = new ThreadPoolExecutor(5, 5, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+                threadPool = new ThreadPoolExecutor(
+                        options.minAsyncThreads,
+                        options.maxAsyncThreads,
+                        options.asyncThreadTimeout,
+                        TimeUnit.SECONDS,
+                        new LinkedBlockingQueue<>()
+                );
                 ((ThreadPoolExecutor)threadPool).allowCoreThreadTimeOut(true);
             }
             sqlTiming = timingsProvider.of("Database");
             logger = options.logger;
+            if (logger == null) {
+                logger = Logger.getLogger(options.poolName);
+            }
 
             HikariConfig config = new HikariConfig();
 
@@ -91,27 +99,31 @@ public final class DB {
             if (options.pass != null) {
                 config.addDataSourceProperty("password", options.pass);
             }
-            config.addDataSourceProperty("cachePrepStmts", true);
-            config.addDataSourceProperty("prepStmtCacheSize", 250);
-            config.addDataSourceProperty("prepStmtCacheSqlLimit", 2048);
-            config.addDataSourceProperty("useServerPrepStmts", true);
-            config.addDataSourceProperty("cacheCallableStmts", true);
-            config.addDataSourceProperty("cacheResultSetMetadata", true);
-            config.addDataSourceProperty("cacheServerConfiguration", true);
-            config.addDataSourceProperty("useLocalSessionState", true);
-            config.addDataSourceProperty("elideSetAutoCommits", true);
-            config.addDataSourceProperty("alwaysSendSetIsolation", false);
+            if (options.useOptimizations) {
+                config.addDataSourceProperty("cachePrepStmts", true);
+                config.addDataSourceProperty("prepStmtCacheSize", 250);
+                config.addDataSourceProperty("prepStmtCacheSqlLimit", 2048);
+                config.addDataSourceProperty("useServerPrepStmts", true);
+                config.addDataSourceProperty("cacheCallableStmts", true);
+                config.addDataSourceProperty("cacheResultSetMetadata", true);
+                config.addDataSourceProperty("cacheServerConfiguration", true);
+                config.addDataSourceProperty("useLocalSessionState", true);
+                config.addDataSourceProperty("elideSetAutoCommits", true);
+                config.addDataSourceProperty("alwaysSendSetIsolation", false);
+            }
+            if (options.dataSourceProperties != null) {
+                for (Map.Entry<String, Object> entry : options.dataSourceProperties.entrySet()) {
+                    config.addDataSourceProperty(entry.getKey(), entry.getValue());
+                }
+            }
 
             config.setConnectionTestQuery("SELECT 1");
             config.setInitializationFailFast(true);
-            config.setMinimumIdle(3);
-            config.setMaximumPoolSize(5);
+            config.setMinimumIdle(options.minIdleConnections);
+            config.setMaximumPoolSize(options.maxConnections);
 
             pooledDataSource = new HikariDataSource(config);
-            pooledDataSource.setTransactionIsolation("TRANSACTION_READ_COMMITTED");
-
-            // TODO: Move to executor
-            //Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, new AsyncDbQueue(), 0, 1);
+            pooledDataSource.setTransactionIsolation(options.defaultIsolationLevel);
         } catch (Exception ex) {
             pooledDataSource = null;
             DB.logException("DB: Error Creating Database Pool", ex);
@@ -123,10 +135,6 @@ public final class DB {
      * Initiates a new DbStatement and prepares the first query.
      * <p/>
      * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
-     *
-     * @param query
-     * @return
-     * @throws SQLException
      */
     public static DbStatement query(@Language("MySQL") String query) throws SQLException {
         return (new DbStatement()).query(query);
@@ -392,7 +400,7 @@ public final class DB {
 
     @SuppressWarnings("WeakerAccess")
     public static DatabaseTiming timings(String name) {
-        return timingsProvider.of(name, sqlTiming);
+        return timingsProvider.of(options.poolName + " - " + name, sqlTiming);
     }
 
     public static void logException(Exception e) {
@@ -420,15 +428,6 @@ public final class DB {
                 DB.logException(e);
             }
         });
-    }
-
-    public interface TransactionCallback extends Function<DbStatement, Boolean> {
-        @Override @SneakyThrows
-        default Boolean apply(DbStatement dbStatement) {
-            return this.runTransaction(dbStatement);
-        }
-
-        Boolean runTransaction(DbStatement stm) throws SQLException;
     }
 
 }
