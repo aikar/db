@@ -13,7 +13,7 @@ META-INF
 .idea/kotlinc.xml
 .idea/modules.xml
 **/*.iml
-**/.idea
+/*/.idea
 # Log file
 *.log
 
