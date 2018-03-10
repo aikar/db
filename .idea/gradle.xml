@@ -9,9 +9,11 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/bukkit" />
             <option value="$PROJECT_DIR$/core" />
           </set>
         </option>
+        <option name="resolveModulePerSourceSet" value="false" />
         <option name="useAutoImport" value="true" />
       </GradleProjectSettings>
     </option>

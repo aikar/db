@@ -24,7 +24,7 @@ publishing {
     }
     publications {
         maven(MavenPublication) {
-            artifactId 'db-core'
+            artifactId 'db-bukkit'
 
             from components.java
         }
@@ -32,7 +32,8 @@ publishing {
 }
 dependencies {
     compileOnly group: 'org.jetbrains', name: 'annotations', version: '15.0'
-    compileOnly group: 'com.zaxxer', name: 'HikariCP', version: '2.4.1'
+    compileOnly group: 'co.aikar', name: 'db-core', version: '1.0.0-SNAPSHOT'
+    compileOnly group: 'org.bukkit', name: 'bukkit', version: '1.12-R0.1-SNAPSHOT'
 }
 
 

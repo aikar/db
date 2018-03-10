@@ -4,6 +4,12 @@
     <bytecodeTargetLevel>
       <module name="core_main" target="1.8" />
       <module name="core_test" target="1.8" />
+      <module name="db-bukkit_main" target="1.8" />
+      <module name="db-bukkit_main~1" target="1.8" />
+      <module name="db-bukkit_test" target="1.8" />
+      <module name="db-bukkit_test~1" target="1.8" />
+      <module name="db-core_main" target="1.8" />
+      <module name="db-core_test" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>
