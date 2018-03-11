@@ -1,13 +1,10 @@
 plugins {
     id 'io.franzbecker.gradle-lombok' version '1.11' apply false
 }
-subprojects {
-    buildscript {
-        repositories {
-            mavenCentral()
-        }
-    }
 
+import io.franzbecker.gradle.lombok.task.DelombokTask
+
+subprojects {
 
     apply plugin: 'java'
     apply plugin: 'maven-publish'
@@ -25,9 +22,55 @@ subprojects {
         sha256 = ""
     }
 
+
+    // Delombok Task
+    task delombok(type: DelombokTask, dependsOn: compileJava) {
+        ext.outputDir = file("$buildDir/delombok")
+        classpath += project.configurations.compileOnly
+        outputs.dir(outputDir)
+        sourceSets.main.java.srcDirs.each {
+            inputs.dir(it)
+            args(it, "-d", outputDir)
+        }
+    }
+
+    //noinspection GroovyAssignabilityCheck
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        dependsOn delombok
+        classifier = 'sources'
+
+        from sourceSets.main.allSource
+    }
+    // Javadoc Task
+    javadoc {
+        dependsOn delombok
+
+        source = file( "${buildDir}/${delombok.name}" )
+        failOnError = true
+    }
+
+    //noinspection GroovyAssignabilityCheck
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        from javadoc.destinationDir
+        classifier = 'javadoc'
+    }
+
+    artifacts {
+        archives javadocJar
+        archives sourcesJar
+    }
+
+    task deploy() {
+        dependsOn build
+        dependsOn javadoc
+        dependsOn publish
+    }
+
     publishing {
         publications {
             maven(MavenPublication) {
+                artifact sourcesJar
+                artifact javadocJar
                 from components.java
             }
         }
