@@ -1,4 +1,4 @@
-package co.aikar.db;
+package co.aikar.idb;
 
 class NullDatabaseTiming implements DatabaseTiming {
     @Override

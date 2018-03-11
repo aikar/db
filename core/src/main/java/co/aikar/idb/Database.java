@@ -1,4 +1,4 @@
-package co.aikar.db;
+package co.aikar.idb;
 
 import org.intellij.lang.annotations.Language;
 

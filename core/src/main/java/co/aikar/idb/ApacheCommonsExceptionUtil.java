@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package co.aikar.db;
+package co.aikar.idb;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;

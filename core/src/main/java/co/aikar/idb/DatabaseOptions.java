@@ -1,6 +1,5 @@
-package co.aikar.db;
+package co.aikar.idb;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;

@@ -61,8 +61,6 @@ subprojects {
     }
 
     task deploy() {
-        dependsOn build
-        dependsOn javadoc
         dependsOn publish
     }
 

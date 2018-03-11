@@ -1,4 +1,4 @@
-package co.aikar.db;
+package co.aikar.idb;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;

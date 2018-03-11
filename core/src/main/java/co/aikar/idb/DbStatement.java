@@ -21,7 +21,7 @@
  *  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package co.aikar.db;
+package co.aikar.idb;
 
 
 import org.intellij.lang.annotations.Language;

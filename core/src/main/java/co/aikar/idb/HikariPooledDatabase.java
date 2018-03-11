@@ -1,4 +1,4 @@
-package co.aikar.db;
+package co.aikar.idb;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
