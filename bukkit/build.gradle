@@ -1,5 +1,5 @@
 dependencies {
-    compileOnly group: 'co.aikar', name: 'db-core', version: '1.0.0-SNAPSHOT'
+    compileOnly project(":idb-core")
     compileOnly group: 'org.bukkit', name: 'bukkit', version: '1.12-R0.1-SNAPSHOT'
 }
 
