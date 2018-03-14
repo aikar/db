@@ -7,55 +7,18 @@ IDB handles connections, query, execution, result fetching and data return for a
 Most Database operations can be completed in a single API call.
 
 Built currently on top of Hikari Connection Pool.
-## Usage
-### Version:
-1.0.0-SNAPSHOT
 
-### Project Setup
+## Getting Started
 
-Add `co.aikar:idb-core` to project.
-Bukkit Minecraft Plugins can also add `co.aikar:idb-bukkit` and use `BukkitDB`
+**Version**: `1.0.0-SNAPSHOT`
 
-### Dependencies
+Project Setup: [Maven](https://github.com/aikar/db/wiki/Maven-Setup), [Gradle](https://github.com/aikar/db/wiki/Gradle-Setup)
 
-To use this, you need to manually shade in HikariCP to your plugin/app.
+Getting Started: [Using IDB](https://github.com/aikar/db/wiki/Using-IDB)
 
-With gradle and shadowjar:
-```groovy
-dependencies {
-	compile group: 'com.zaxxer', name: 'HikariCP', version: '2.7.8'
-}
-```
+API Documentation: [IDB API](https://github.com/aikar/db/wiki/IDB-API)
 
-You also need to make sure your respective JDBC driver (MySQL, etc) is shaded/available
-the mysql setup method expects the following driver:
-
-MySQL: `mysql:mysql-connector-java:5.1.33`, class: `com.mysql.jdbc.jdbc2.optional.MysqlDataSource`
-
-### Initializing
-Create a `PooledDatabaseOptions` object, which then requires a `DatabaseOptions` object and create a `HikariPooledDatabase` with it.
-
-Example:
-
-```java
-class App {
-    public static void main() {
-        Database db = PooledDatabaseOptions
-            .builder()
-            .options(
-                DatabaseOptions.builder()
-                    .mysql("user", "pass", "db", "localhost:3306")
-                    .build()
-            )
-            .createHikariDatabase();
-        DB.setGlobalDatabase(db);
-    }
-}
-```
-
-Then you may use any of the static API's in the DB class around your app, and they will use the global database instance.
-
-If you prefer a dependency injection approach, simply pass your Database instance.  
+Real World Examples: [Examples](https://github.com/aikar/db/wiki/Real-World-Examples)
 
 ## Say Thanks
 If this library has helped you, please consider donating as a way of saying thanks
