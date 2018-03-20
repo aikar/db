@@ -5,23 +5,35 @@ plugins {
 import io.franzbecker.gradle.lombok.task.DelombokTask
 
 subprojects {
-
     apply plugin: 'java'
-    apply plugin: 'maven-publish'
+    apply plugin: 'maven'
     apply plugin: 'io.franzbecker.gradle-lombok'
 
-    version '1.0.0-SNAPSHOT'
-
     group 'co.aikar'
+    version '1.0.0-SNAPSHOT'
 
     sourceCompatibility = '1.8'
     targetCompatibility = '1.8'
 
     lombok {
         version = '1.16.20'
-        sha256 = ""
+        sha256 = ''
     }
 
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            name 'aikar'
+            url 'https://repo.aikar.co/content/groups/aikar/'
+        }
+    }
+
+    dependencies {
+        compileOnly group: 'org.jetbrains', name: 'annotations', version: '15.0'
+    }
+
+    project.conf2ScopeMappings.addMapping(300, configurations.compileOnly, 'provided')
 
     // Delombok Task
     task delombok(type: DelombokTask, dependsOn: compileJava) {
@@ -34,22 +46,20 @@ subprojects {
         }
     }
 
-    //noinspection GroovyAssignabilityCheck
     task sourcesJar(type: Jar, dependsOn: classes) {
         dependsOn delombok
         classifier = 'sources'
 
         from sourceSets.main.allSource
     }
-    // Javadoc Task
+
     javadoc {
         dependsOn delombok
 
-        source = file( "${buildDir}/${delombok.name}" )
+        source = file("${buildDir}/${delombok.name}")
         failOnError = true
     }
 
-    //noinspection GroovyAssignabilityCheck
     task javadocJar(type: Jar, dependsOn: javadoc) {
         from javadoc.destinationDir
         classifier = 'javadoc'
@@ -61,39 +71,22 @@ subprojects {
     }
 
     task deploy() {
-        dependsOn publish
+        dependsOn uploadArchives
     }
 
-    publishing {
-        publications {
-            maven(MavenPublication) {
-                artifact sourcesJar
-                artifact javadocJar
-                from components.java
-            }
-        }
-        repositories {
-            maven {
-                url 'https://repo.aikar.co/content/repositories/aikar-snapshots/'
-                if (project.hasProperty('aikarRepoUser') && project.hasProperty('aikarRepoPass')) {
-                    credentials {
-                        username = aikarRepoUser
-                        password = aikarRepoPass
+    if(project.hasProperty('aikarRepoUser') && project.hasProperty('aikarRepoPass')) {
+        uploadArchives {
+            repositories {
+                mavenDeployer {
+                    repository(url: 'https://repo.aikar.co/content/repositories/aikar-snapshots/') {
+                        authentication(userName: aikarRepoUser, password: aikarRepoPass)
+                    }
+
+                    snapshotRepository(url: 'https://repo.aikar.co/content/repositories/aikar-snapshots/') {
+                        authentication(userName: aikarRepoUser, password: aikarRepoPass)
                     }
                 }
             }
-        }
-    }
-    dependencies {
-        compileOnly group: 'org.jetbrains', name: 'annotations', version: '15.0'
-    }
-
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        maven {
-            name = "aikar"
-            url = "https://repo.aikar.co/content/groups/aikar/"
         }
     }
 }
