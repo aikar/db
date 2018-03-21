@@ -71,6 +71,7 @@ subprojects {
     }
 
     task deploy() {
+        dependsOn install
         dependsOn uploadArchives
     }
 
