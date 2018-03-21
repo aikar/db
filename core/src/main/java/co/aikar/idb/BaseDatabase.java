@@ -23,6 +23,12 @@ public abstract class BaseDatabase implements Database {
 
     BaseDatabase(DatabaseOptions options) {
         this.options = options;
+        if (options.driverClassName != null && !options.favorDataSourceOverDriver) {
+            options.dataSourceClassName = null;
+        }
+        if (options.driverClassName == null && options.dataSourceClassName == null) {
+            throw new NullPointerException("Both driverClassName and dataSourceClassName can not be null. Please load an appropriate DataSource or Driver.");
+        }
         this.timingsProvider = options.timingsProvider;
         this.threadPool = options.executor;
         if (this.threadPool == null) {

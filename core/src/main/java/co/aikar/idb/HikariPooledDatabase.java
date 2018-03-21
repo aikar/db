@@ -18,7 +18,9 @@ public class HikariPooledDatabase extends BaseDatabase {
 
         HikariConfig config = new HikariConfig();
         config.setPoolName(options.poolName);
-        config.setDataSourceClassName(options.databaseClassName);
+        if (options.dataSourceClassName != null) {
+            config.setDataSourceClassName(options.dataSourceClassName);
+        }
         config.addDataSourceProperty("url", "jdbc:" + options.dsn);
 
         if (options.user != null) {

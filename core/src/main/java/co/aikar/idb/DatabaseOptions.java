@@ -17,9 +17,14 @@ public class DatabaseOptions {
      */
     @NonNull String dsn;
     /**
-     * JDBC Driver name to load
+     * JDBC Classname of the Driver name to use
      */
-    @NonNull String databaseClassName;
+    @NonNull String driverClassName;
+    /**
+     * Class name of DataSource to use
+     */
+    String dataSourceClassName;
+    @Builder.Default boolean favorDataSourceOverDriver = true;
 
     @Builder.Default String poolName = "DB";
     @Builder.Default String defaultIsolationLevel = "TRANSACTION_READ_COMMITTED";
@@ -51,8 +56,56 @@ public class DatabaseOptions {
             }
             this.user = user;
             this.pass = pass;
-            this.databaseClassName = "com.mysql.jdbc.jdbc2.optional.MysqlDataSource";
+
+            if (dataSourceClassName == null) tryDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
+            if (dataSourceClassName == null) tryDataSourceClassName("com.mysql.jdbc.jdbc2.optional.MysqlDataSource");
+
+            if (driverClassName == null) tryDriverClassName("org.mariadb.jdbc.Driver");
+            if (driverClassName == null) tryDriverClassName("com.mysql.cj.jdbc.Driver");
+            if (driverClassName == null) tryDriverClassName("com.mysql.jdbc.Driver");
+
             this.dsn = "mysql://" + hostAndPort + "/" + db;
+            return this;
+        }
+
+        /**
+         * Tries the specified JDBC driverClassName, and uses it if it is valid. Does nothing if a Driver is already set
+         */
+        public DatabaseOptionsBuilder tryDriverClassName(@NonNull String className) {
+            try {
+                driverClassName(className);
+            } catch (Exception ignored) {}
+            return this;
+        }
+
+
+        /**
+         * Tries the specified JDBC DataSource, and uses it if it is valid. Does nothing if a DataSource is already set
+         */
+        public DatabaseOptionsBuilder tryDataSourceClassName(@NonNull String className) {
+            try {
+                dataSourceClassName(className);
+            } catch (Exception ignored) {}
+            return this;
+        }
+
+        public DatabaseOptionsBuilder driverClassName(@NonNull String className) {
+            try {
+                Class.forName(className).newInstance();
+            } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            this.driverClassName = className;
+            return this;
+        }
+
+        public DatabaseOptionsBuilder dataSourceClassName(@NonNull String className) {
+            try {
+                Class.forName(className);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            this.dataSourceClassName = className;
             return this;
         }
     }
