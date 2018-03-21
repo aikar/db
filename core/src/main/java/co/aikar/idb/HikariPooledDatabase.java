@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class HikariPooledDatabase extends BaseDatabase {
-    private HikariDataSource pooledDataSource;
     private final PooledDatabaseOptions poolOptions;
 
     public HikariPooledDatabase(PooledDatabaseOptions poolOptions) {
@@ -52,20 +51,9 @@ public class HikariPooledDatabase extends BaseDatabase {
         config.setMinimumIdle(poolOptions.minIdleConnections);
         config.setMaximumPoolSize(poolOptions.maxConnections);
 
-        pooledDataSource = new HikariDataSource(config);
+        HikariDataSource pooledDataSource = new HikariDataSource(config);
         pooledDataSource.setTransactionIsolation(options.defaultIsolationLevel);
-    }
-
-    @Override
-    public void close(long timeout, TimeUnit unit) {
-        super.close(timeout, unit);
-        pooledDataSource.close();
-        pooledDataSource = null;
-    }
-
-    @Override
-    public Connection getConnection() throws SQLException {
-        return pooledDataSource != null ? pooledDataSource.getConnection() : null;
+        dataSource = pooledDataSource;
     }
 
     public PooledDatabaseOptions getPoolOptions() {

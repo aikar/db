@@ -1,5 +1,10 @@
 package co.aikar.idb;
 
+import javax.sql.DataSource;
+import java.io.Closeable;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -14,6 +19,7 @@ public abstract class BaseDatabase implements Database {
     private Logger logger;
     private DatabaseOptions options;
     private ExecutorService threadPool;
+    DataSource dataSource;
 
     BaseDatabase(DatabaseOptions options) {
         this.options = options;
@@ -43,6 +49,15 @@ public abstract class BaseDatabase implements Database {
             threadPool.awaitTermination(timeout, unit);
         } catch (InterruptedException e) {
             logException(e);
+        }
+        if (dataSource instanceof Closeable) {
+            try {
+                ((Closeable) dataSource).close();
+            } catch (IOException e) {
+                logException(e);
+            } finally {
+                dataSource = null;
+            }
         }
     }
 
@@ -79,5 +94,9 @@ public abstract class BaseDatabase implements Database {
     @Override
     public Logger getLogger() {
         return logger;
+    }
+
+    public Connection getConnection() throws SQLException {
+        return dataSource != null ? dataSource.getConnection() : null;
     }
 }

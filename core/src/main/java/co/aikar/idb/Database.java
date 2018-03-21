@@ -2,6 +2,7 @@ package co.aikar.idb;
 
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
