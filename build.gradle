@@ -57,7 +57,7 @@ subprojects {
         dependsOn delombok
 
         source = file("${buildDir}/${delombok.name}")
-        failOnError = true
+        failOnError = false
     }
 
     task javadocJar(type: Jar, dependsOn: javadoc) {
