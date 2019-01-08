@@ -49,7 +49,6 @@ public class HikariPooledDatabase extends BaseDatabase {
         }
 
         config.setConnectionTestQuery("SELECT 1");
-        config.setInitializationFailFast(true);
         config.setMinimumIdle(poolOptions.minIdleConnections);
         config.setMaximumPoolSize(poolOptions.maxConnections);
 
