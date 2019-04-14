@@ -68,6 +68,16 @@ public class DatabaseOptions {
             return this;
         }
 
+        public DatabaseOptionsBuilder sqlite(@NonNull String fileName) {
+            if (dataSourceClassName == null) tryDataSourceClassName("org.sqlite.SQLiteDataSource");
+
+            if (driverClassName == null) tryDriverClassName("org.sqlite.JDBC");
+
+            this.dsn = "sqlite:" + fileName;
+
+            return this;
+        }
+
         /**
          * Tries the specified JDBC driverClassName, and uses it if it is valid. Does nothing if a Driver is already set
          */
