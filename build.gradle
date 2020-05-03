@@ -1,5 +1,5 @@
 plugins {
-    id 'io.franzbecker.gradle-lombok' version '1.11' apply false
+    id 'io.franzbecker.gradle-lombok' version '3.3.0' apply false
 }
 
 import io.franzbecker.gradle.lombok.task.DelombokTask
@@ -16,13 +16,14 @@ subprojects {
     targetCompatibility = '1.8'
 
     lombok {
-        version = '1.16.20'
+        version = '1.18.12'
         sha256 = ''
     }
 
     repositories {
         mavenLocal()
         mavenCentral()
+        jcenter()
         maven {
             name 'aikar'
             url 'https://repo.aikar.co/content/groups/aikar/'

@@ -12,6 +12,9 @@ META-INF
 .idea/uiDesigner.xml
 .idea/kotlinc.xml
 .idea/modules.xml
+.idea/gradle.xml
+.idea/compiler.xml
+.idea/jarRepositories.xml
 **/*.iml
 /*/.idea
 # Log file
