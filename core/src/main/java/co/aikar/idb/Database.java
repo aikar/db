@@ -71,7 +71,7 @@ public interface Database {
      * <p/>
      * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
      */
-    default DbStatement query(@Language("MySQL") String query) throws SQLException {
+    default DbStatement query(@Language("SQL") String query) throws SQLException {
         DbStatement stm = new DbStatement(this);
         try {
             stm.query(query);
@@ -87,7 +87,7 @@ public interface Database {
      * <p/>
      * YOU MUST MANUALLY CLOSE THIS STATEMENT IN A finally {} BLOCK!
      */
-    default CompletableFuture<DbStatement> queryAsync(@Language("MySQL") String query) {
+    default CompletableFuture<DbStatement> queryAsync(@Language("SQL") String query) {
         return dispatchAsync(() -> new DbStatement(this).query(query));
     }
 
@@ -99,7 +99,7 @@ public interface Database {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    default DbRow getFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
+    default DbRow getFirstRow(@Language("SQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = query(query)) {
             statement.execute(params);
             return statement.getNextRow();
@@ -114,7 +114,7 @@ public interface Database {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    default CompletableFuture<DbRow> getFirstRowAsync(@Language("MySQL") String query, Object... params) {
+    default CompletableFuture<DbRow> getFirstRowAsync(@Language("SQL") String query, Object... params) {
         return dispatchAsync(() -> getFirstRow(query, params));
     }
 
@@ -126,7 +126,7 @@ public interface Database {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    default <T> T getFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
+    default <T> T getFirstColumn(@Language("SQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = query(query)) {
             statement.execute(params);
             return statement.getFirstColumn();
@@ -141,7 +141,7 @@ public interface Database {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    default <T> CompletableFuture<T> getFirstColumnAsync(@Language("MySQL") String query, Object... params) {
+    default <T> CompletableFuture<T> getFirstColumnAsync(@Language("SQL") String query, Object... params) {
         return dispatchAsync(() -> getFirstColumn(query, params));
     }
 
@@ -150,7 +150,7 @@ public interface Database {
      * <p>
      * Meant for single queries that will not use the statement multiple times.
      */
-    default <T> List<T> getFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
+    default <T> List<T> getFirstColumnResults(@Language("SQL") String query, Object... params) throws SQLException {
         List<T> dbRows = new ArrayList<>();
         T result;
         try (DbStatement statement = query(query)) {
@@ -167,7 +167,7 @@ public interface Database {
      * <p>
      * Meant for single queries that will not use the statement multiple times.
      */
-    default <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("MySQL") String query, Object... params) {
+    default <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("SQL") String query, Object... params) {
         return dispatchAsync(() -> getFirstColumnResults(query, params));
     }
 
@@ -180,7 +180,7 @@ public interface Database {
      * @param params The parameters to execute the statement with
      * @return List of DbRow of your results (HashMap with template return type)
      */
-    default List<DbRow> getResults(@Language("MySQL") String query, Object... params) throws SQLException {
+    default List<DbRow> getResults(@Language("SQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = query(query)) {
             statement.execute(params);
             return statement.getResults();
@@ -196,7 +196,7 @@ public interface Database {
      * @param params The parameters to execute the statement with
      * @return List of DbRow of your results (HashMap with template return type)
      */
-    default CompletableFuture<List<DbRow>> getResultsAsync(@Language("MySQL") String query, Object... params) {
+    default CompletableFuture<List<DbRow>> getResultsAsync(@Language("SQL") String query, Object... params) {
         return dispatchAsync(() -> getResults(query, params));
     }
 
@@ -208,7 +208,7 @@ public interface Database {
      * @param params Params to execute the statement with.
      * @return Inserted Row Id.
      */
-    default Long executeInsert(@Language("MySQL") String query, Object... params) throws SQLException {
+    default Long executeInsert(@Language("SQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = query(query)) {
             int i = statement.executeUpdate(params);
             if (i > 0) {
@@ -225,7 +225,7 @@ public interface Database {
      * @param params Params to execute the statement with.
      * @return Number of rows modified.
      */
-    default int executeUpdate(@Language("MySQL") String query, Object... params) throws SQLException {
+    default int executeUpdate(@Language("SQL") String query, Object... params) throws SQLException {
         try (DbStatement statement = query(query)) {
             return statement.executeUpdate(params);
         }
@@ -237,7 +237,7 @@ public interface Database {
      * @param query  Query to run
      * @param params Params to execute the update with
      */
-    default CompletableFuture<Integer> executeUpdateAsync(@Language("MySQL") String query, final Object... params) {
+    default CompletableFuture<Integer> executeUpdateAsync(@Language("SQL") String query, final Object... params) {
         return dispatchAsync(() -> executeUpdate(query, params));
     }
 

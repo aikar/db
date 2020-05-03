@@ -160,7 +160,7 @@ public class DbStatement implements AutoCloseable {
     /**
      * Initiates a new prepared statement on this connection.
      */
-    public DbStatement query(@Language("MySQL") String query) throws SQLException {
+    public DbStatement query(@Language("SQL") String query) throws SQLException {
         this.query = query;
         try (DatabaseTiming ignored = db.timings("query: " + query)) {
             closeStatement();
@@ -178,7 +178,7 @@ public class DbStatement implements AutoCloseable {
     /**
      * Helper method to query, execute and getResults
      */
-    public ArrayList<DbRow> executeQueryGetResults(@Language("MySQL") String query, Object... params) throws SQLException {
+    public ArrayList<DbRow> executeQueryGetResults(@Language("SQL") String query, Object... params) throws SQLException {
         this.query(query);
         this.execute(params);
         return getResults();
@@ -187,7 +187,7 @@ public class DbStatement implements AutoCloseable {
     /**
      * Helper method to query and execute update
      */
-    public int executeUpdateQuery(@Language("MySQL") String query, Object... params) throws SQLException {
+    public int executeUpdateQuery(@Language("SQL") String query, Object... params) throws SQLException {
         this.query(query);
         return this.executeUpdate(params);
     }
@@ -195,7 +195,7 @@ public class DbStatement implements AutoCloseable {
     /**
      * Helper method to query, execute and get first row
      */
-    public DbRow executeQueryGetFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
+    public DbRow executeQueryGetFirstRow(@Language("SQL") String query, Object... params) throws SQLException {
         this.query(query);
         this.execute(params);
         return this.getNextRow();
@@ -204,7 +204,7 @@ public class DbStatement implements AutoCloseable {
     /**
      * Helper to query, execute and get first column
      */
-    public <T> T executeQueryGetFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
+    public <T> T executeQueryGetFirstColumn(@Language("SQL") String query, Object... params) throws SQLException {
         this.query(query);
         this.execute(params);
         return this.getFirstColumn();
@@ -213,7 +213,7 @@ public class DbStatement implements AutoCloseable {
     /**
      * Helper to query, execute and get first column of all results
      */
-    public <T> List<T> executeQueryGetFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
+    public <T> List<T> executeQueryGetFirstColumnResults(@Language("SQL") String query, Object... params) throws SQLException {
         this.query(query);
         this.execute(params);
         List<T> dbRows = new ArrayList<>();

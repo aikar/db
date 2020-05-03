@@ -69,7 +69,7 @@ public final class DB {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    public static DbRow getFirstRow(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static DbRow getFirstRow(@Language("SQL") String query, Object... params) throws SQLException {
         return globalDatabase.getFirstRow(query, params);
     }
     /**
@@ -80,7 +80,7 @@ public final class DB {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    public static CompletableFuture<DbRow> getFirstRowAsync(@Language("MySQL") String query, Object... params) {
+    public static CompletableFuture<DbRow> getFirstRowAsync(@Language("SQL") String query, Object... params) {
         return globalDatabase.getFirstRowAsync(query, params);
     }
 
@@ -92,7 +92,7 @@ public final class DB {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    public static <T> T getFirstColumn(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static <T> T getFirstColumn(@Language("SQL") String query, Object... params) throws SQLException {
         return globalDatabase.getFirstColumn(query, params);
     }
     /**
@@ -103,7 +103,7 @@ public final class DB {
      * @param params The parameters to execute the statement with
      * @return DbRow of your results (HashMap with template return type)
      */
-    public static <T> CompletableFuture<T> getFirstColumnAsync(@Language("MySQL") String query, Object... params) {
+    public static <T> CompletableFuture<T> getFirstColumnAsync(@Language("SQL") String query, Object... params) {
         return globalDatabase.getFirstColumnAsync(query, params);
     }
 
@@ -112,7 +112,7 @@ public final class DB {
      *
      * Meant for single queries that will not use the statement multiple times.
      */
-    public static <T> List<T> getFirstColumnResults(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static <T> List<T> getFirstColumnResults(@Language("SQL") String query, Object... params) throws SQLException {
         return globalDatabase.getFirstColumnResults(query, params);
     }
     /**
@@ -120,7 +120,7 @@ public final class DB {
      *
      * Meant for single queries that will not use the statement multiple times.
      */
-    public static <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("MySQL") String query, Object... params) {
+    public static <T> CompletableFuture<List<T>> getFirstColumnResultsAsync(@Language("SQL") String query, Object... params) {
         return globalDatabase.getFirstColumnResultsAsync(query, params);
     }
 
@@ -133,7 +133,7 @@ public final class DB {
      * @param params The parameters to execute the statement with
      * @return List of DbRow of your results (HashMap with template return type)
      */
-    public static List<DbRow> getResults(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static List<DbRow> getResults(@Language("SQL") String query, Object... params) throws SQLException {
         return globalDatabase.getResults(query, params);
     }
 
@@ -146,7 +146,7 @@ public final class DB {
      * @param params The parameters to execute the statement with
      * @return List of DbRow of your results (HashMap with template return type)
      */
-    public static CompletableFuture<List<DbRow>> getResultsAsync(@Language("MySQL") String query, Object... params) {
+    public static CompletableFuture<List<DbRow>> getResultsAsync(@Language("SQL") String query, Object... params) {
         return globalDatabase.getResultsAsync(query, params);
     }
 
@@ -158,7 +158,7 @@ public final class DB {
      * @param params Params to execute the statement with.
      * @return Inserted Row Id.
      */
-    public static Long executeInsert(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static Long executeInsert(@Language("SQL") String query, Object... params) throws SQLException {
         return globalDatabase.executeInsert(query, params);
     }
     /**
@@ -168,7 +168,7 @@ public final class DB {
      * @param params Params to execute the statement with.
      * @return Number of rows modified.
      */
-    public static int executeUpdate(@Language("MySQL") String query, Object... params) throws SQLException {
+    public static int executeUpdate(@Language("SQL") String query, Object... params) throws SQLException {
         return globalDatabase.executeUpdate(query, params);
     }
 
@@ -178,7 +178,7 @@ public final class DB {
      * @param query  Query to run
      * @param params Params to execute the update with
      */
-    public static CompletableFuture<Integer> executeUpdateAsync(@Language("MySQL") String query, final Object... params) {
+    public static CompletableFuture<Integer> executeUpdateAsync(@Language("SQL") String query, final Object... params) {
         return globalDatabase.executeUpdateAsync(query, params);
     }
 
