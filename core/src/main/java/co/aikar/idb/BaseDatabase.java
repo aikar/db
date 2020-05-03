@@ -13,7 +13,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-public abstract class BaseDatabase implements Database {
+public class BaseDatabase implements Database {
     private TimingsProvider timingsProvider;
     private DatabaseTiming sqlTiming;
     private Logger logger;
@@ -21,7 +21,7 @@ public abstract class BaseDatabase implements Database {
     private ExecutorService threadPool;
     DataSource dataSource;
 
-    BaseDatabase(DatabaseOptions options) {
+    public BaseDatabase(DatabaseOptions options) {
         this.options = options;
         if (options.driverClassName != null && !options.favorDataSourceOverDriver) {
             options.dataSourceClassName = null;
