@@ -24,10 +24,11 @@ public class DatabaseOptions {
      * Class name of DataSource to use
      */
     String dataSourceClassName;
+    String defaultIsolationLevel;
+
     @Builder.Default boolean favorDataSourceOverDriver = true;
 
     @Builder.Default String poolName = "DB";
-    @Builder.Default String defaultIsolationLevel = "TRANSACTION_READ_COMMITTED";
     @Builder.Default boolean useOptimizations = true;
 
     /**
@@ -57,6 +58,8 @@ public class DatabaseOptions {
             this.user = user;
             this.pass = pass;
 
+            if (defaultIsolationLevel == null) defaultIsolationLevel = "TRANSACTION_READ_COMMITTED";
+
             if (dataSourceClassName == null) tryDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
             if (dataSourceClassName == null) tryDataSourceClassName("com.mysql.jdbc.jdbc2.optional.MysqlDataSource");
 
@@ -69,6 +72,8 @@ public class DatabaseOptions {
         }
 
         public DatabaseOptionsBuilder sqlite(@NonNull String fileName) {
+            if (defaultIsolationLevel == null) defaultIsolationLevel = "TRANSACTION_SERIALIZABLE";
+
             if (dataSourceClassName == null) tryDataSourceClassName("org.sqlite.SQLiteDataSource");
 
             if (driverClassName == null) tryDriverClassName("org.sqlite.JDBC");
