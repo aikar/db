@@ -46,7 +46,9 @@ public class BaseDatabase implements Database {
         if (this.logger == null) {
             this.logger = Logger.getLogger(options.poolName);
         }
-        this.logger.info("Connecting to Database: " + options.dsn);
+        if(options.displayConnectInfo) {
+            this.logger.info("Connecting to Database: " + options.dsn);
+        }
     }
 
     public void close(long timeout, TimeUnit unit) {
