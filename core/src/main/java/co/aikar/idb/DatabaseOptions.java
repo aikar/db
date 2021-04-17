@@ -26,6 +26,7 @@ public class DatabaseOptions {
     String dataSourceClassName;
     String defaultIsolationLevel;
 
+    @Builder.Default boolean displayConnectInfo = true;
     @Builder.Default boolean favorDataSourceOverDriver = true;
 
     @Builder.Default String poolName = "DB";
