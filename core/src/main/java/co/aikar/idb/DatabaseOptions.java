@@ -62,6 +62,7 @@ public class DatabaseOptions {
 
             if (dataSourceClassName == null) tryDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
             if (dataSourceClassName == null) tryDataSourceClassName("com.mysql.jdbc.jdbc2.optional.MysqlDataSource");
+            if (dataSourceClassName == null) tryDataSourceClassName("com.mysql.cj.jdbc.MysqlDataSource");
 
             if (driverClassName == null) tryDriverClassName("org.mariadb.jdbc.Driver");
             if (driverClassName == null) tryDriverClassName("com.mysql.cj.jdbc.Driver");
